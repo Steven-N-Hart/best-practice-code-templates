@@ -87,7 +87,7 @@ while getopts "n:m:c:lht" OPTION; do
     n)  NUM_REPEATS=$OPTARG ;;   # Get the number of repeats
     m)  MY_MESSAGE="$OPTARG" ;;  # Overwrite "Hello World" default if provided
     c)  CONFIG_FILE=$OPTARG ;;   # Configuration file
-    l)  set -x ;;								 # Turn on debugging mode
+    l)  set -x ;;                # Turn on debugging mode
     h)  usage                    # Help and exit
         exit ;;
     t)  RUN_TEST=true ;;
@@ -315,7 +315,7 @@ OPTIONAL
 	-m   message to repeat [default: "Hello World"]
 	-c   configuration file 
 	-t   run unit test only
-        -l   print out log messages
+  -l   print out log messages
 	-h   print this help message
 
 NOTES
@@ -332,7 +332,7 @@ while getopts "n:m:c:lht" OPTION; do
     n)  NUM_REPEATS=$OPTARG ;;   # Get the number of repeats
     m)  MY_MESSAGE="$OPTARG" ;;  # Overwrite "Hello World" default if provided
     c)  CONFIG_FILE=$OPTARG ;;   # Configuration file
-    l)  set -x ;;								 # Turn on debugging mode
+    l)  set -x ;;                # Turn on debugging mode
     h)  usage                    # Help and exit
         exit ;;
     t)  RUN_TEST=true ;;
