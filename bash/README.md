@@ -13,14 +13,14 @@
 
 
 # The shebang
-The first lines of code I add to my bash script are about the [shebang](https://en.wikipedia.org/wiki/Shebang_(Unix)).  This tells the operating system what type of interpreter to use if one is not provided.  For example, if the bash interpreter is located at `/bin/bash` and the shebang in your script (we'll use dummy_program.sh) is set to `#!/bin/bash`, then `./dummy_program.sh` and `bash ./dummy_program.sh` are equivalent.  However, this is essentially hard coding a path, which I don't like to do.  Instead, I leverage the environment varialbe (`env`) to tell me where my bash is using the following syntax: 
+The first lines of code I add to my bash script are about the [shebang](https://en.wikipedia.org/wiki/Shebang_(Unix)).  This tells the operating system what type of interpreter to use if one is not provided.  For example, if the bash interpreter is located at `/bin/bash` and the shebang in your script (we'll use dummy_program.sh) is set to `#!/bin/bash`, then `./dummy_program.sh` and `bash ./dummy_program.sh` are equivalent.  However, this is essentially hard coding a path, which I don't like to do.  Instead, leverage the environment varialbe (`env`) to tell where my bash is using the following syntax: 
 `#!/usr/bin/env bash`.
 
 # `set` options
 Bash has a lot of little neat tricks that can be super helpful and should always be use (IMHO).  
 * `set -e` tells your script to exit if a command fails. 
 * `set -u` tells your script to exit if you try to use an undeclared variable
-* `set -x` prints out a log of the commands run, useful for debugging.  I usually thie this value into `getopts` (see below) as a verbose option.
+* `set -x` prints out a log of the commands run, useful for debugging.  I usually thie this value into `getopts` (see below) as a verbose logging option.
 
 # Defaults and Documentation
 In the next section of code is where I set any of my default variables - if there are any.  I put them here because I will read in variables from the command-line in the next step.  If any optional command-line parameters are defined, they will override my defaults.  In this case, let's assume I set some arbitrary default value: `MY_MESSAGE="Hello World"`.
@@ -64,7 +64,7 @@ OPTIONAL
 	-m   message to repeat [default: "Hello World"]
 	-c   configuration file 
 	-t   run unit test only
-        -l   print out log messages
+	-l   print out log messages
 	-h   print this help message
 
 NOTES
@@ -85,9 +85,9 @@ Here comes the fun stuff.  When I want to pass parameters from the command-line,
 while getopts "n:m:c:lht" OPTION; do
   case $OPTION in
     n)  NUM_REPEATS=$OPTARG ;;   # Get the number of repeats
-    m)  MY_MESSAGE="$OPTARG" ;;    # Overwrite "Hello World" default if provided
+    m)  MY_MESSAGE="$OPTARG" ;;  # Overwrite "Hello World" default if provided
     c)  CONFIG_FILE=$OPTARG ;;   # Configuration file
-    l)  set -x ;;
+    l)  set -x ;;								 # Turn on debugging mode
     h)  usage                    # Help and exit
         exit ;;
     t)  RUN_TEST=true ;;
@@ -101,14 +101,14 @@ while getopts "n:m:c:lht" OPTION; do
 done
 
 ```
-What this bit is doing is looping through and parsing all the command-line parameters that are supplied with the script.  Notice the  `:` in `m:` and `c:`.  This means that there is a value afer message that needs to be imported.  The `h` and the `t` don't have one because they are flags.  If a message is specified, the special `$OPTARG` variable will set `$MY_MESSAGE` to be the quoted string supplied from the CLI. If the `h` flag is specified, it immediately triggers the `usage` function we defined above and exits.  I'm using the `t` flage here to set a variable I will use later that determines if I should run the code, or just the unit tests.  The last two options getting parsed just make sure that no undefined paramters get used (`\?`) and that those with a `:` are required to have some value (i.e. are not flags).
+What this bit is doing is looping through and parsing all the command-line parameters that are supplied with the script.  Notice the  `:` in the `n:`, `m:`, and `c:` parameters?  This means that there is a value after the flag that needs to be imported.  If a message is specified, the special `$OPTARG` variable will set `$MY_MESSAGE` to be the quoted string supplied from the CLI.  The `l`, `h`, and `t` parameters don't have one because they are flags. If `-h` is specified, it immediately triggers the `usage` function we defined above and exits.  I'm using the `t` flag here to set a variable I will use later that determines if I should run the code, or just the unit tests.  The last two options getting parsed just make sure that no undefined paramters get used (`\?`) and that those with a `:` are required to have some value (i.e. are not flags).
 
 # Source configuration files
 Using `getopts` is great for interactive analysis, but if you want to run a script multiple times, its best to set up a configuration file that sets variables for you so you don't have to have a very long command.  This is where I like to put anything where the paths have to be hard coded (such as versions of tools I want to use) or any varibles nested inside complicated scripts.  The simplist config file is a simple text file that sets variables.  Take this config file for example:
 ```bash
 DUMMY_VERSION="1.0"
 ```
-It is just a test file that sets an environment variable `DUMMY_VERSION` to `1.0`.  Not a very useful variable in this example, but you get the idea.  To have access to the `DUMMY_VERSION` variable, you need to add the following to your code:
+It is just a text file that sets an environment variable `DUMMY_VERSION` to `1.0`.  Not a very useful variable in this example, but you get the idea.  To have access to the `DUMMY_VERSION` variable, you need to add the following to your code:
 ```bash
 # Get the DUMMY_VERSION parameter from the config file, if it exists
 # otherwise, set it to NA
@@ -121,7 +121,7 @@ fi
 ```
 Here I made sure that there was a file passed from the CLI (option `-c`) before I sourced it.  By using the `source` function, I have now made the `DUMMY_VERSION` variable available to this script.  If no config file was provided, I set the value to `NA`.  Either way, I now have made sure that I have a value set for `DUMMY_VERSION`.
 
-The last step is to do any input validation
+The last step is to do any input validation.  Here, I am making sure the `$NUM_REPEATS` variable is not null (it's a required argument), making sure it's a number > 0, and ensuring that I didn't specify that I want to run tests.  This way when I run my test,  I don't have to supply a `-n` parameter
 ```bash
 #Vaidate required input
 if [[ -z "$NUM_REPEATS" ]] || [[ "$NUM_REPEATS" -le 0 ]] && [[ -z "$RUN_TEST" ]]
@@ -147,15 +147,17 @@ else
 fi
 ```
 
-In best-practice style, let's first start with my `run_tests` function.  If we remember, this script is supposed to print out a message repeated N times.  To run that function, I need a string to print, and a number of times to repeat it.  So we need to build a series of tests for positive negative examples.
+In best-practice style, let's first start with my `run_tests` function.  If we remember, this script is supposed to print out a message repeated `$NUM_REPEATS` times.  To run that function, I need a string to print, and a number of times to repeat it.  So we need to build a series of tests for positive negative examples.
 
 ### Writing the Test
 Let's say the function we want to test is named `print_statement` - even though we haven't actually built it yet. We
-want `print statement` to accept 2 parameters: the number of times a string needs to be printed, and a string to print.  Notice, I put the required arguments first and the optional argument last.  So let's build an example that shoud print "Hello World" 2 times.  Importantly, we want to capture the result of the function (that we still haven't written yet), so I'll introduce notation to do that as well.  First let's create a function named `print_test_x2` that should return "Hello World" printed twice.
+want `print_statement` to accept 2 parameters: the number of times a string needs to be printed, and a string to print.  Notice, I put the required arguments first and the optional argument last.  So let's build an example that shoud print "Hello World" 2 times.  Importantly, we want to capture the result of the function (that we still haven't written yet), so I'll introduce notation to do that as well.  First let's create a function named `print_test_x2` that should return "Hello World" printed exatly twice.
 ```bash
-ffunction print_test_x2 {
+function print_test_x2 {
+
   # Set a truth variable so you have something to compare your result to
   # use the "local" designation so we don't overwrite any global variables
+  # get away from positional ($1) operators ASAP
   local STATUS=${1:-}
   local EXPECTED="Hello World
 Hello World"
@@ -164,13 +166,13 @@ Hello World"
     local NUM_REPEATS=2
   elif [ "$STATUS" == "FAIL" ]
   then
-    #Set a variable that shouldn't pass
+    # Set a variable that shouldn't pass and the error code I expect to recieve
     local NUM_REPEATS="NA"
     local EXPECTED="##################### ERROR #####################
 You need to supply a number to the print_statement function
 Instead, you supplied NA"
   else
-    #Don't run tests that aren't configured properly
+    # Don't run tests that aren't configured properly
     echo "##################### WARNING #####################"
     echo "You need to supply either a PASS or FAIL parameter"
   fi
@@ -181,6 +183,7 @@ Instead, you supplied NA"
   then
     echo "print_test_x2 test $STATUS has passed"
   else
+    # or else print out a nicely formatted error
     echo "print_test_x2 test $STATUS has FAILED"
     echo -e "\tOBSERVED:"
     echo -e "\t\t$OBSERVED"
@@ -208,9 +211,9 @@ Now that we have tests built for the function, let's go ahead and build the func
 # The second argument is the quoted string to be repeated
 #     If the 2nd option is not provided, then the default of "Hello World" will be used
 function print_statement {
+
   # The first thing one should do is to validate your inputs
   # Validate that first argument is defined, an integer, at least a value of 1
-  
   if ! [[ "$NUM_REPEATS" =~ ^[0-9]+$ ]]
   then
     echo "##################### ERROR #####################"
@@ -237,12 +240,12 @@ function print_statement {
 
 
 ```
-
 ### Tying together the test and function
 OK.  Now we have a test and a function, but we need a way for our script to know which one it should run - either the test or the function.  Remeber the wrapper functions we used earlier (`run_main` & `run_tests`), but still didn't define yet?  Let's go ahead and create those functions here.
 ```bash
 # This just indicates which tests to run
 #    you can add more tests here if you need to
+# The function accepts eith PASS or FAIL, depending on the positie or negative response you want back
 function run_tests {
 	print_test_x2 PASS
 	print_test_x2 FAIL
@@ -257,7 +260,7 @@ function run_main {
 }
 
 ```
-Importantly, I am testing the same function (`print_statement`) in both the testing route and the program route.  It just doesn't make sense to test one function and use another.
+**__Importantly__**, I am testing the same function (`print_statement`) in both the testing route and the program route.  It just doesn't make sense to test one function and use another.
 
 Then we can string together a conditional statement to determine if the program should be run or tested.
 ```bash
@@ -327,9 +330,9 @@ exit
 while getopts "n:m:c:lht" OPTION; do
   case $OPTION in
     n)  NUM_REPEATS=$OPTARG ;;   # Get the number of repeats
-    m)  MY_MESSAGE="$OPTARG" ;;    # Overwrite "Hello World" default if provided
+    m)  MY_MESSAGE="$OPTARG" ;;  # Overwrite "Hello World" default if provided
     c)  CONFIG_FILE=$OPTARG ;;   # Configuration file
-    l)  set -x ;;
+    l)  set -x ;;								 # Turn on debugging mode
     h)  usage                    # Help and exit
         exit ;;
     t)  RUN_TEST=true ;;
