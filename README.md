@@ -3,7 +3,7 @@
 ## Background
 Bioinformaticians are the cowboys of the programming world.  Many of us are self-taught programmers that spend most of our days writing one-off scripts that are hacked together in a rushed attempt to "get things done".  While functional, this approach makes it a nightmare to review code - be it from colleagues or the original author.
 
-One big concerns with bioinformatics is that the field is littered with different programming languages like Bash, Python, Perl, Java, JavaScript, Go, Docker, SQL, NoSQL, R, and many others.  Therefore to get the answer one is looking for involves loosely chaining together various scripts in different languages.  This makes it difficult to standardize testing frameworks that may only work for (certain platforms)[https://en.wikipedia.org/wiki/List_of_unit_testing_frameworks].  So it's just not practical to select an overall unit testing framework.
+One big concerns with bioinformatics is that the field is littered with different programming languages like Bash, Python, Perl, Java, JavaScript, Go, Docker, SQL, NoSQL, R, and many others.  Therefore to get the answer one is looking for involves loosely chaining together various scripts in different languages.  This makes it difficult to standardize testing frameworks that may only work for [certain platforms](https://en.wikipedia.org/wiki/List_of_unit_testing_frameworks).  So it's just not practical to select an overall unit testing framework.
 
 ## Proposal
 A lot of bioinformatics work is script based, rather than full-on program, so there really isn't a good way to do unit tests without forming some sort of directory/package structure where you can place your tests and configure a test runner.
