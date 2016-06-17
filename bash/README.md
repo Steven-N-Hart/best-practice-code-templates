@@ -327,7 +327,7 @@ fi
 set +x
 ```
 # The whole thing
-You can view the whole thing in [helloWorld.sh](/helloWorld.sh)
+You can view the whole thing in [helloWorld.sh](https://github.com/Steven-N-Hart/best-practice-code-templates/blob/master/bash/helloWorld.sh)
 # Summary
 I know this is probably the longest "Hello World" you've seen, but it's the most basic example of how to write good, clean, testable code.  Some of the best practices covered here include:
 * Extensively comment
