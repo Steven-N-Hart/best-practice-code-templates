@@ -18,8 +18,7 @@ CONFIG_FILE=""
 NUM_REPEATS=""
 RUN_TEST=""
 
-usage ()
-{
+usage (){
 cat << EOF
 
 Usage: ./dummy_program.sh [options] -n <num_repeats>
@@ -70,13 +69,26 @@ else
   DUMMY_VERSION="NA"
 fi
 
+
+# Create a systematic logging function
+logError () {
+    local LEVEL="${1}"
+    local CODE="${2}"
+    local MESSAGE="${3}"
+    local SCRIPT_NAME=$(basename "$0")
+    echo "
+################################################################
+${LEVEL} ${SCRIPT_NAME} ${SGE_TASK_ID-NA} ${CODE} ${MESSAGE}
+################################################################
+"
+        #Note: the SGE_TASK_ID is a special variable when using the sun grid engine
+}
+
 #Vaidate required input
-if [[ -z "$NUM_REPEATS" ]] || [[ "$NUM_REPEATS" -le 0 ]] && [[ -z "$RUN_TEST" ]]
+if [[ -z "$NUM_REPEATS" ]] || [[ "$NUM_REPEATS" -le 0 ]] && [[ -z "$RUN_TEST" ]] && ! [[ "$NUM_REPEATS" =~ ^[0-9]+$ ]]
 then
-  echo "##################### ERROR #####################"
-  echo "You need to supply a number to the print_statement function"
-  echo "Instead, you supplied \"$NUM_REPEATS\""
-  usage
+  logError "ERROR" E001 "You need to supply a number to the\n\tprint_statement function, but you supplied \"$NUM_REPEATS\"\n\tSee -h for details"
+  exit
 fi
 
 #####################################################################
@@ -95,13 +107,13 @@ Hello World"
   then
     #Set a variable that shouldn't pass
     local NUM_REPEATS="NA"
-    local EXPECTED="##################### ERROR #####################
-You need to supply a number to the print_statement function
-Instead, you supplied NA"
+    local EXPECTED="
+################################################################
+ERROR helloWorld.sh NA E001 Expecting a number but got \"$NUM_REPEATS\"
+################################################################"
   else
     #Don't run tests that aren't configured properly
-    echo "##################### WARNING #####################"
-    echo "You need to supply either a PASS or FAIL parameter"
+    logError "WARNING" W001 "You need to supply either a PASS or FAIL parameter"
   fi
   # Get the result of the print_statement function (that we haven't made yet) and store it into another local variable called OBSERVED
   local OBSERVED=$(print_statement $NUM_REPEATS)
@@ -113,9 +125,10 @@ Instead, you supplied NA"
     echo "print_test_x2 test $STATUS has FAILED"
     echo -e "\tOBSERVED:"
     echo -e "\t\t$OBSERVED"
-    echo ""
     echo -e "\tEXPECTED:"
     echo -e "\t\t$EXPECTED"
+    echo $EXPECTED > exp.out
+    echo $OBSERVED > obs.out
   fi
 }
 
@@ -139,9 +152,7 @@ function print_statement {
   
   if ! [[ "$NUM_REPEATS" =~ ^[0-9]+$ ]]
   then
-    echo "##################### ERROR #####################"
-    echo "You need to supply a number to the print_statement function"
-    echo "Instead, you supplied $NUM_REPEATS"
+    logError "ERROR" E001 "Expecting a number but got \"$NUM_REPEATS\""
     exit
   fi
   

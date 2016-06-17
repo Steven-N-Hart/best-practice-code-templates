@@ -51,25 +51,24 @@ CONFIG_FILE=""
 NUM_REPEATS=""
 RUN_TEST=""
 
-usage ()
-{
+usage (){
 cat << EOF
 
 Usage: ./dummy_program.sh [options] -n <num_repeats>
 
 REQUIRED
-	-n   an integer that determines how many times to repeat the message
+  -n   an integer that determines how many times to repeat the message
 
 OPTIONAL
-	-m   message to repeat [default: "Hello World"]
-	-c   configuration file 
-	-t   run unit test only
-	-l   print out log messages
-	-h   print this help message
+  -m   message to repeat [default: "Hello World"]
+  -c   configuration file 
+  -t   run unit test only
+  -l   print out log messages
+  -h   print this help message
 
 NOTES
-	If specifying a message, make sure to include it in double quotes.
-	The configuration file should contain a version number as a variable.
+  If specifying a message, make sure to include it in double quotes.
+  The configuration file should contain a version number as a variable.
 
 EOF
 exit
@@ -121,17 +120,34 @@ fi
 ```
 Here I made sure that there was a file passed from the CLI (option `-c`) before I sourced it.  By using the `source` function, I have now made the `DUMMY_VERSION` variable available to this script.  If no config file was provided, I set the value to `NA`.  Either way, I now have made sure that I have a value set for `DUMMY_VERSION`.
 
-The last step is to do any input validation.  Here, I am making sure the `$NUM_REPEATS` variable is not null (it's a required argument), making sure it's a number > 0, and ensuring that I didn't specify that I want to run tests.  This way when I run my test,  I don't have to supply a `-n` parameter
+The next step is to do any input validation.  Here, I am making sure the `$NUM_REPEATS` variable is not null (it's a required argument), making sure it's a number > 0, and ensuring that I didn't specify that I want to run tests.  This way when I run my test,  I don't have to supply a `-n` parameter
 ```bash
 #Vaidate required input
-if [[ -z "$NUM_REPEATS" ]] || [[ "$NUM_REPEATS" -le 0 ]] && [[ -z "$RUN_TEST" ]]
+if [[ -z "$NUM_REPEATS" ]] || [[ "$NUM_REPEATS" -le 0 ]] && [[ -z "$RUN_TEST" ]] && ! [[ "$NUM_REPEATS" =~ ^[0-9]+$ ]]
 then
-  echo "##################### ERROR #####################"
-  echo "You need to supply a number to the print_statement function"
-  echo "Instead, you supplied \"$NUM_REPEATS\""
-  usage
+  logError "ERROR" E001 "You need to supply a number to the\n\tprint_statement function, but you supplied \"$NUM_REPEATS\"\n\tSee -h for details"
+  exit
 fi
 ```
+
+Finally, because some of us are anal-rententive, let's create a simple logging function so that we always report errors in the same fashion.
+
+```bash
+# Create a systematic logging function
+logError () {
+    local LEVEL="${1}"
+    local CODE="${2}"
+    local MESSAGE="${3}"
+    local SCRIPT_NAME=$(basename "$0")
+    echo "
+################################################################
+${LEVEL} ${SCRIPT_NAME} ${SGE_TASK_ID-NA} ${CODE} ${MESSAGE}
+################################################################
+"
+        #Note: the SGE_TASK_ID is a special variable when using the sun grid engine
+}
+```
+
 
 # Structure
 OK.  This is where it gets hard.  I want to use functions for everything so I can build unit tests, but I also want to be able to run the script so it can do what I want it to do.  Therefore, I need to split my script into a test part and a run part.  I'll do this using functions that I'll need to define.
@@ -153,11 +169,12 @@ In best-practice style, let's first start with my `run_tests` function.  If we r
 Let's say the function we want to test is named `print_statement` - even though we haven't actually built it yet. We
 want `print_statement` to accept 2 parameters: the number of times a string needs to be printed, and a string to print.  Notice, I put the required arguments first and the optional argument last.  So let's build an example that shoud print "Hello World" 2 times.  Importantly, we want to capture the result of the function (that we still haven't written yet), so I'll introduce notation to do that as well.  First let's create a function named `print_test_x2` that should return "Hello World" printed exatly twice.
 ```bash
+#####################################################################
+###  Define tests
+#####################################################################
 function print_test_x2 {
-
   # Set a truth variable so you have something to compare your result to
   # use the "local" designation so we don't overwrite any global variables
-  # get away from positional ($1) operators ASAP
   local STATUS=${1:-}
   local EXPECTED="Hello World
 Hello World"
@@ -166,15 +183,15 @@ Hello World"
     local NUM_REPEATS=2
   elif [ "$STATUS" == "FAIL" ]
   then
-    # Set a variable that shouldn't pass and the error code I expect to recieve
+    #Set a variable that shouldn't pass
     local NUM_REPEATS="NA"
-    local EXPECTED="##################### ERROR #####################
-You need to supply a number to the print_statement function
-Instead, you supplied NA"
+    local EXPECTED="
+################################################################
+ERROR helloWorld.sh NA E001 Expecting a number but got \"$NUM_REPEATS\"
+################################################################"
   else
-    # Don't run tests that aren't configured properly
-    echo "##################### WARNING #####################"
-    echo "You need to supply either a PASS or FAIL parameter"
+    #Don't run tests that aren't configured properly
+    logError "WARNING" W001 "You need to supply either a PASS or FAIL parameter"
   fi
   # Get the result of the print_statement function (that we haven't made yet) and store it into another local variable called OBSERVED
   local OBSERVED=$(print_statement $NUM_REPEATS)
@@ -183,14 +200,21 @@ Instead, you supplied NA"
   then
     echo "print_test_x2 test $STATUS has passed"
   else
-    # or else print out a nicely formatted error
     echo "print_test_x2 test $STATUS has FAILED"
     echo -e "\tOBSERVED:"
     echo -e "\t\t$OBSERVED"
-    echo ""
     echo -e "\tEXPECTED:"
     echo -e "\t\t$EXPECTED"
+    echo $EXPECTED > exp.out
+    echo $OBSERVED > obs.out
   fi
+}
+
+# This just indicates which tests to run
+#    you can add more tests here if you need to
+function run_tests {
+  print_test_x2 PASS
+  print_test_x2 FAIL
 }
 ```
 Congratulations, we just created our first test!  We created a function (`print_test_x2`) that calls the function we want to test (`print_statement`).  Some key features are:
@@ -237,18 +261,41 @@ function print_statement {
     echo "$STATEMENT"
   done
 }
-
-
 ```
 ### Tying together the test and function
 OK.  Now we have a test and a function, but we need a way for our script to know which one it should run - either the test or the function.  Remeber the wrapper functions we used earlier (`run_main` & `run_tests`), but still didn't define yet?  Let's go ahead and create those functions here.
 ```bash
-# This just indicates which tests to run
-#    you can add more tests here if you need to
-# The function accepts eith PASS or FAIL, depending on the positie or negative response you want back
-function run_tests {
-	print_test_x2 PASS
-	print_test_x2 FAIL
+#####################################################################
+###  Define functions
+#####################################################################
+# The function will take in at most 2 arguments
+# The 1st argument is a number that is for how many times the string should be repeated
+# The second argument is the quoted string to be repeated
+#     If the 2nd option is not provided, then the default of "Hello World" will be used
+function print_statement {
+  # The first thing one should do is to validate your inputs
+  # Validate that first argument is defined, an integer, at least a value of 1
+  
+  if ! [[ "$NUM_REPEATS" =~ ^[0-9]+$ ]]
+  then
+    logError "ERROR" E001 "Expecting a number but got \"$NUM_REPEATS\""
+    exit
+  fi
+  
+  # If the 2nd option is not provided, then the default of "Hello World" will be used
+  if [[ "$MY_MESSAGE" &&  -z "$MY_MESSAGE" ]]
+    then
+    local STATEMENT="Hello World"
+  else
+    # use the provided message
+    local STATEMENT="$MY_MESSAGE"
+  fi
+
+  # Print the $STATEMENT $NUM_REPEATS number of times
+  for x in $(seq 1 "$NUM_REPEATS")
+  do
+    echo "$STATEMENT"
+  done
 }
 
 # This just indicates that you want to run the main script, passing it 2 parameters:
@@ -279,196 +326,8 @@ fi
 
 set +x
 ```
-
 # The whole thing
-```bash
-#!/usr/bin/env bash
-set -e
-set -u
-
-#####################################################################
-###  Descripion
-#####################################################################
-# The purpose of this script is to print a phrase n times. It requires
-# a number value to tell it how many times to repeat.  If a phrase is
-# not specified, "Helo World" will be used.
-
-#####################################################################
-###  Set default thresholds & collect inputs
-#####################################################################
-# Initialize global variables
-MY_MESSAGE="Hello World"
-CONFIG_FILE=""
-NUM_REPEATS=""
-RUN_TEST=""
-
-usage ()
-{
-cat << EOF
-
-Usage: ./dummy_program.sh [options] -n <num_repeats>
-
-REQUIRED
-	-n   an integer that determines how many times to repeat the message
-
-OPTIONAL
-	-m   message to repeat [default: "Hello World"]
-	-c   configuration file 
-	-t   run unit test only
-  -l   print out log messages
-	-h   print this help message
-
-NOTES
-	If specifying a message, make sure to include it in double quotes.
-	The configuration file should contain a version number as a variable.
-
-EOF
-exit
-}
-
-# Read in command line arguments
-while getopts "n:m:c:lht" OPTION; do
-  case $OPTION in
-    n)  NUM_REPEATS=$OPTARG ;;   # Get the number of repeats
-    m)  MY_MESSAGE="$OPTARG" ;;  # Overwrite "Hello World" default if provided
-    c)  CONFIG_FILE=$OPTARG ;;   # Configuration file
-    l)  set -x ;;                # Turn on debugging mode
-    h)  usage                    # Help and exit
-        exit ;;
-    t)  RUN_TEST=true ;;
-    \?) echo "Invalid option: -$OPTARG. See output file for usage." >&2
-        usage
-        exit ;;
-    :)  echo "Option -$OPTARG requires an argument. See output file for usage." >&2
-        usage
-        exit ;;
-  esac
-done
-
-# Get the DUMMY_VERSION parameter from the config file, if it exists
-# otherwise, set it to NA
-if  [[ "$CONFIG_FILE" ]]
-then
-	source "$CONFIG_FILE"
-else
-	DUMMY_VERSION="NA"
-fi
-
-#Vaidate required input
-if [[ -z "$NUM_REPEATS" ]] || [[ "$NUM_REPEATS" -le 0 ]] && [[ -z "$RUN_TEST" ]]
-then
-  echo "##################### ERROR #####################"
-  echo "You need to supply a number to the print_statement function"
-  echo "Instead, you supplied \"$NUM_REPEATS\""
-  usage
-fi
-
-#####################################################################
-###  Define tests
-#####################################################################
-function print_test_x2 {
-  # Set a truth variable so you have something to compare your result to
-  # use the "local" designation so we don't overwrite any global variables
-  local STATUS=${1:-}
-  local EXPECTED="Hello World
-Hello World"
-  if [ "$STATUS" == "PASS" ]
-  then
-    local NUM_REPEATS=2
-  elif [ "$STATUS" == "FAIL" ]
-  then
-    #Set a variable that shouldn't pass
-    local NUM_REPEATS="NA"
-    local EXPECTED="##################### ERROR #####################
-You need to supply a number to the print_statement function
-Instead, you supplied NA"
-  else
-    #Don't run tests that aren't configured properly
-    echo "##################### WARNING #####################"
-    echo "You need to supply either a PASS or FAIL parameter"
-  fi
-  # Get the result of the print_statement function (that we haven't made yet) and store it into another local variable called OBSERVED
-  local OBSERVED=$(print_statement $NUM_REPEATS)
-  # Now make sure that the OBSERVED is what you expect it to be
-  if [[ "$OBSERVED" == "$EXPECTED" ]]
-  then
-    echo "print_test_x2 test $STATUS has passed"
-  else
-    echo "print_test_x2 test $STATUS has FAILED"
-    echo -e "\tOBSERVED:"
-    echo -e "\t\t$OBSERVED"
-    echo ""
-    echo -e "\tEXPECTED:"
-    echo -e "\t\t$EXPECTED"
-  fi
-}
-
-# This just indicates which tests to run
-#    you can add more tests here if you need to
-function run_tests {
-	print_test_x2 PASS
-	print_test_x2 FAIL
-}
-
-#####################################################################
-###  Define functions
-#####################################################################
-# The function will take in at most 2 arguments
-# The 1st argument is a number that is for how many times the string should be repeated
-# The second argument is the quoted string to be repeated
-#     If the 2nd option is not provided, then the default of "Hello World" will be used
-function print_statement {
-  # The first thing one should do is to validate your inputs
-  # Validate that first argument is defined, an integer, at least a value of 1
-  
-  if ! [[ "$NUM_REPEATS" =~ ^[0-9]+$ ]]
-  then
-    echo "##################### ERROR #####################"
-    echo "You need to supply a number to the print_statement function"
-    echo "Instead, you supplied $NUM_REPEATS"
-    exit
-  fi
-  
-  # If the 2nd option is not provided, then the default of "Hello World" will be used
-  if [[ "$MY_MESSAGE" &&  -z "$MY_MESSAGE" ]]
-    then
-    local STATEMENT="Hello World"
-  else
-    # use the provided message
-    local STATEMENT="$MY_MESSAGE"
-  fi
-
-  # Print the $STATEMENT $NUM_REPEATS number of times
-  for x in $(seq 1 "$NUM_REPEATS")
-  do
-    echo "$STATEMENT"
-  done
-}
-
-# This just indicates that you want to run the main script, passing it 2 parameters:
-# 1. NUM_REPEATS
-# 2. MY_MESSAGE
-function run_main {
-    # make sure to quote your variables to accout for whitespaces
-    print_statement "$NUM_REPEATS" "$MY_MESSAGE"
-}
-
-#####################################################################
-###  MAIN
-#####################################################################
-#Determine if you should run tests or the actual program
-if [ -z "$RUN_TEST" ]
-then
-	# Run the script
-	run_main "$NUM_REPEATS" "$MY_MESSAGE"
-else
-	# Run the testing framework
-	run_tests
-fi
-
-set +x
-```
-
+You can view the whole thing in [helloWorld.sh](/helloWorld.sh)
 # Summary
 I know this is probably the longest "Hello World" you've seen, but it's the most basic example of how to write good, clean, testable code.  Some of the best practices covered here include:
 * Extensively comment
