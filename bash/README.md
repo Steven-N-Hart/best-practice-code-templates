@@ -205,8 +205,6 @@ ERROR helloWorld.sh NA E001 Expecting a number but got \"$NUM_REPEATS\"
     echo -e "\t\t$OBSERVED"
     echo -e "\tEXPECTED:"
     echo -e "\t\t$EXPECTED"
-    echo $EXPECTED > exp.out
-    echo $OBSERVED > obs.out
   fi
 }
 
