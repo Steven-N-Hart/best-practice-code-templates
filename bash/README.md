@@ -208,12 +208,6 @@ ERROR helloWorld.sh NA E001 Expecting a number but got \"$NUM_REPEATS\"
   fi
 }
 
-# This just indicates which tests to run
-#    you can add more tests here if you need to
-function run_tests {
-  print_test_x2 PASS
-  print_test_x2 FAIL
-}
 ```
 Congratulations, we just created our first test!  We created a function (`print_test_x2`) that calls the function we want to test (`print_statement`).  Some key features are:
 * Used a conditional `if` statement so we could determine if we wanted a positive (`PASS`) or negative (`FAIL`) result and not have to write new code
@@ -223,45 +217,6 @@ Congratulations, we just created our first test!  We created a function (`print_
 
 # Writing the Function
 Now that we have tests built for the function, let's go ahead and build the function.
-```bash
-
-#####################################################################
-###  Define functions
-#####################################################################
-# The function will take in at most 2 arguments
-# The 1st argument is a number that is for how many times the string should be repeated
-# The second argument is the quoted string to be repeated
-#     If the 2nd option is not provided, then the default of "Hello World" will be used
-function print_statement {
-
-  # The first thing one should do is to validate your inputs
-  # Validate that first argument is defined, an integer, at least a value of 1
-  if ! [[ "$NUM_REPEATS" =~ ^[0-9]+$ ]]
-  then
-    echo "##################### ERROR #####################"
-    echo "You need to supply a number to the print_statement function"
-    echo "Instead, you supplied $NUM_REPEATS"
-    exit
-  fi
-  
-  # If the 2nd option is not provided, then the default of "Hello World" will be used
-  if [[ "$MY_MESSAGE" &&  -z "$MY_MESSAGE" ]]
-    then
-    local STATEMENT="Hello World"
-  else
-    # use the provided message
-    local STATEMENT="$MY_MESSAGE"
-  fi
-
-  # Print the $STATEMENT $NUM_REPEATS number of times
-  for x in $(seq 1 "$NUM_REPEATS")
-  do
-    echo "$STATEMENT"
-  done
-}
-```
-### Tying together the test and function
-OK.  Now we have a test and a function, but we need a way for our script to know which one it should run - either the test or the function.  Remeber the wrapper functions we used earlier (`run_main` & `run_tests`), but still didn't define yet?  Let's go ahead and create those functions here.
 ```bash
 #####################################################################
 ###  Define functions
@@ -295,7 +250,11 @@ function print_statement {
     echo "$STATEMENT"
   done
 }
+```
+### Tying together the test and function
+OK.  Now we have a test and a function, but we need a way for our script to know which one it should run - either the test or the function.  Remeber the wrapper functions we used earlier (`run_main` & `run_tests`), but still didn't define yet?  Let's go ahead and create those functions here. Then we can string together a conditional statement to determine if the program should be run or tested.
 
+```bash
 # This just indicates that you want to run the main script, passing it 2 parameters:
 # 1. NUM_REPEATS
 # 2. MY_MESSAGE
@@ -304,11 +263,13 @@ function run_main {
     print_statement "$NUM_REPEATS" "$MY_MESSAGE"
 }
 
-```
-**__Importantly__**, I am testing the same function (`print_statement`) in both the testing route and the program route.  It just doesn't make sense to test one function and use another.
+# This just indicates which tests to run
+#    you can add more tests here if you need to
+function run_tests {
+  print_test_x2 PASS
+  print_test_x2 FAIL
+}
 
-Then we can string together a conditional statement to determine if the program should be run or tested.
-```bash
 #####################################################################
 ###  MAIN
 #####################################################################
@@ -324,6 +285,9 @@ fi
 
 set +x
 ```
+**__Importantly__**, I am testing the same function (`print_statement`) in both the testing route and the program route.  It just doesn't make sense to test one function and use another.
+
+
 # The whole thing
 You can view the whole thing in [helloWorld.sh](https://github.com/Steven-N-Hart/best-practice-code-templates/blob/master/bash/helloWorld.sh)
 # Summary
